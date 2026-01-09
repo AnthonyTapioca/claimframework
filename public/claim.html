@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <title>Shoplox Claim</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Tailwind config -->
+  <!-- Tailwind Enhancements -->
   <script>
     tailwind.config = {
       theme: {
         extend: {
           boxShadow: {
-            soft: '0 20px 40px rgba(0,0,0,0.08)',
+            soft: '0 20px 50px rgba(0,0,0,0.08)',
           }
         }
       }
@@ -22,29 +22,29 @@
   </script>
 </head>
 
-<body class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-orange-50 flex items-center justify-center p-6">
+<body class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-orange-50 flex items-center justify-center px-6">
 
-  <div class="w-full max-w-xl">
+  <main class="w-full max-w-xl">
 
     <!-- Header -->
-    <div class="text-center mb-10">
+    <header class="text-center mb-12">
       <h1 class="text-6xl font-extrabold text-gray-900 tracking-tight">
         SHOP<span class="text-purple-600">LOX</span>
       </h1>
-      <p class="text-gray-500 mt-3 text-lg">
-        Secure Order Redemption
+      <p class="mt-4 text-gray-500 text-lg">
+        Secure Order Redemption Portal
       </p>
-      <div class="h-1 w-24 bg-gradient-to-r from-purple-600 to-orange-500 mx-auto mt-5 rounded-full"></div>
-    </div>
+      <div class="mt-6 h-1 w-24 mx-auto rounded-full bg-gradient-to-r from-purple-600 to-orange-500"></div>
+    </header>
 
     <!-- Card -->
-    <div class="bg-white rounded-3xl shadow-soft p-10 border border-gray-100">
+    <section class="bg-white rounded-3xl shadow-soft p-10 border border-gray-100">
 
-      <h2 class="text-3xl font-bold text-gray-900 mb-2 text-center">
+      <h2 class="text-3xl font-bold text-gray-900 text-center">
         Claim Your Order
       </h2>
-      <p class="text-gray-600 mb-8 text-center">
-        Enter your email and order ID below
+      <p class="text-gray-600 text-center mt-2 mb-8">
+        Enter your details below to continue
       </p>
 
       <div class="space-y-6">
@@ -59,7 +59,8 @@
             type="email"
             placeholder="you@example.com"
             class="w-full px-5 py-4 rounded-xl border border-gray-300 text-lg
-                   focus:ring-4 focus:ring-purple-200 focus:border-purple-600 outline-none transition"
+                   focus:ring-4 focus:ring-purple-200 focus:border-purple-600
+                   outline-none transition"
           />
         </div>
 
@@ -71,9 +72,10 @@
           <input
             id="orderId"
             type="text"
-            placeholder="#SLX-123456"
+            placeholder="SLX-123456"
             class="w-full px-5 py-4 rounded-xl border border-gray-300 text-lg
-                   focus:ring-4 focus:ring-orange-200 focus:border-orange-500 outline-none transition"
+                   focus:ring-4 focus:ring-orange-200 focus:border-orange-500
+                   outline-none transition"
           />
         </div>
 
@@ -82,28 +84,28 @@
       <!-- Button -->
       <button
         onclick="handleRedeem()"
-        class="mt-8 w-full bg-gradient-to-r from-purple-600 to-purple-700
+        class="mt-8 w-full py-4 rounded-xl text-lg font-bold uppercase tracking-wide
+               text-white bg-gradient-to-r from-purple-600 to-purple-700
                hover:from-purple-700 hover:to-purple-800
-               text-white font-bold py-4 rounded-xl text-lg uppercase tracking-wide
-               shadow-lg hover:shadow-xl transition-all duration-200 active:scale-[0.98]"
+               shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
       >
         Redeem Order
       </button>
 
       <!-- Footer -->
-      <div class="mt-10 pt-6 border-t border-gray-100 text-center">
+      <footer class="mt-10 pt-6 border-t border-gray-100 text-center">
         <p class="text-sm text-gray-500">
           Need help?
           <span class="text-orange-500 font-semibold">
             support@shoplox.com
           </span>
         </p>
-      </div>
+      </footer>
 
-    </div>
-  </div>
+    </section>
+  </main>
 
-  <!-- Logic -->
+  <!-- App Logic -->
   <script>
     function handleRedeem() {
       const email = document.getElementById('email').value.trim();
@@ -114,18 +116,17 @@
         return;
       }
 
-      alert(`Claim submitted!\n\nEmail: ${email}\nOrder ID: ${orderId}`);
+      alert(
+        `Claim submitted successfully!\n\nEmail: ${email}\nOrder ID: ${orderId}`
+      );
 
       document.getElementById('email').value = '';
       document.getElementById('orderId').value = '';
     }
   </script>
 
-  <!-- ✅ Smartsupp Widget (ONLY one, clean) -->
-  <script
-    src="https://widget-page.smartsupp.com/widget/1d61c626cecbd6d35d0987b2ff1de9587836ed5e"
-    async
-  ></script>
+  <!-- ✅ Smartsupp (external, clean) -->
+  <script src="/smartsupp.js" defer></script>
 
 </body>
 </html>

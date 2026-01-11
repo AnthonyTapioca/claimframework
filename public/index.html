@@ -4,36 +4,63 @@
   <meta charset="UTF-8" />
   <title>Shoplox Claim</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-orange-50 flex items-center justify-center px-6">
 
   <main class="w-full max-w-xl bg-white p-10 rounded-3xl shadow-lg">
+
     <h1 class="text-4xl font-bold text-center mb-6">
       SHOP<span class="text-purple-600">LOX</span>
     </h1>
 
-    <input id="email" type="email" placeholder="Email"
-      class="w-full mb-4 p-4 border rounded-xl" />
+    <!-- Email -->
+    <input
+      id="email"
+      type="email"
+      placeholder="Email used at checkout"
+      class="w-full mb-4 p-4 border rounded-xl"
+    />
 
-    <input id="orderId" type="text" placeholder="Order ID"
-      class="w-full mb-6 p-4 border rounded-xl" />
+    <!-- Order Number -->
+    <input
+      id="orderId"
+      type="text"
+      placeholder="Order Number (e.g. #1024)"
+      class="w-full p-4 border rounded-xl"
+    />
 
-    <button onclick="redeem()"
-      class="w-full py-4 rounded-xl bg-purple-600 text-white font-bold">
+    <p class="text-sm text-gray-500 mt-2 mb-6">
+      ⚠️ Use the <b>order number</b> from Shopify (starts with <b>#</b>).  
+      Do <u>not</u> use the confirmation code from the email.
+    </p>
+
+    <button
+      onclick="redeem()"
+      class="w-full py-4 rounded-xl bg-purple-600 text-white font-bold"
+    >
       Redeem Order
     </button>
+
   </main>
 
   <script>
     async function redeem() {
-      const email = emailInput = document.getElementById('email').value.trim();
+      const email = document.getElementById('email').value.trim();
       const orderId = document.getElementById('orderId').value.trim();
 
       if (!email || !orderId) {
-        alert('Fill all fields');
+        alert('Please fill in all fields.');
+        return;
+      }
+
+      // ❌ Block confirmation codes (letters/numbers, no #)
+      if (!orderId.startsWith('#')) {
+        alert(
+          'Invalid order number.\n\n' +
+          'Use the Shopify order number (starts with #), NOT the confirmation code.'
+        );
         return;
       }
 
@@ -44,11 +71,11 @@
       });
 
       if (!res.ok) {
-        alert('Order not found');
+        alert('Order not found. Make sure the email and order number are correct.');
         return;
       }
 
-      // Redirect to Discord login
+      // Redirect to Discord OAuth
       window.location.href = '/api?discordLogin=true';
     }
   </script>

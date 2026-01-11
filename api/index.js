@@ -2,7 +2,9 @@ import axios from 'axios';
 
 export default async function handler(req, res) {
 
-  // ===== DISCORD LOGIN REDIRECT =====
+  // =======================
+  // DISCORD LOGIN REDIRECT
+  // =======================
   if (req.method === 'GET' && req.query.discordLogin) {
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
@@ -16,7 +18,9 @@ export default async function handler(req, res) {
     );
   }
 
-  // ===== DISCORD CALLBACK =====
+  // =======================
+  // DISCORD CALLBACK
+  // =======================
   if (req.method === 'GET' && req.query.code) {
     const code = req.query.code;
 
@@ -41,21 +45,29 @@ export default async function handler(req, res) {
       }
     );
 
-    // Assign role
-    await axios.put(
-      `https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${userRes.data.id}/roles/${process.env.DISCORD_ROLE_ID}`,
-      {},
-      {
-        headers: {
-          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
+    // OPTIONAL: role assignment (safe if env vars exist)
+    if (
+      process.env.DISCORD_BOT_TOKEN &&
+      process.env.DISCORD_GUILD_ID &&
+      process.env.DISCORD_ROLE_ID
+    ) {
+      await axios.put(
+        `https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${userRes.data.id}/roles/${process.env.DISCORD_ROLE_ID}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
+          }
         }
-      }
-    );
+      );
+    }
 
     return res.redirect('https://claimframework.vercel.app');
   }
 
-  // ===== ORDER CLAIM =====
+  // =======================
+  // ORDER CLAIM
+  // =======================
   if (req.method === 'POST') {
     const { email, orderId } = req.body;
 
@@ -63,10 +75,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing fields' });
     }
 
+    // Extra backend safety
+    if (!orderId.startsWith('#')) {
+      return res.status(400).json({ error: 'Invalid order number' });
+    }
+
     try {
+      const query = `email:${email} name:${orderId}`;
+
       const shopifyRes = await axios.get(
-        `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders.json?name=${orderId}`,
+        `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders.json`,
         {
+          params: {
+            status: 'any',
+            limit: 1,
+            query
+          },
           auth: {
             username: process.env.SHOPIFY_CLIENT_ID,
             password: process.env.SHOPIFY_CLIENT_SECRET
@@ -83,13 +107,13 @@ export default async function handler(req, res) {
         .map(i => `• ${i.title} x${i.quantity}`)
         .join('\n');
 
-      // Discord ticket
+      // Discord ticket (webhook)
       await axios.post(process.env.DISCORD_WEBHOOK_URL, {
         embeds: [{
-          title: '🛒 New Claim',
+          title: '🛒 New Order Claim',
           fields: [
             { name: 'Email', value: email },
-            { name: 'Order', value: order.name },
+            { name: 'Order Number', value: order.name },
             { name: 'Items', value: items }
           ]
         }]

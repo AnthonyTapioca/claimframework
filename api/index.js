@@ -13,9 +13,7 @@ export default async function handler(req, res) {
       scope: 'identify guilds.members.read'
     });
 
-    return res.redirect(
-      `https://discord.com/oauth2/authorize?${params}`
-    );
+    return res.redirect(`https://discord.com/oauth2/authorize?${params}`);
   }
 
   // =======================
@@ -38,27 +36,14 @@ export default async function handler(req, res) {
 
     const userRes = await axios.get(
       'https://discord.com/api/users/@me',
-      {
-        headers: {
-          Authorization: `Bearer ${tokenRes.data.access_token}`
-        }
-      }
+      { headers: { Authorization: `Bearer ${tokenRes.data.access_token}` } }
     );
 
-    // OPTIONAL: role assignment (safe if env vars exist)
-    if (
-      process.env.DISCORD_BOT_TOKEN &&
-      process.env.DISCORD_GUILD_ID &&
-      process.env.DISCORD_ROLE_ID
-    ) {
+    if (process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_GUILD_ID && process.env.DISCORD_ROLE_ID) {
       await axios.put(
         `https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${userRes.data.id}/roles/${process.env.DISCORD_ROLE_ID}`,
         {},
-        {
-          headers: {
-            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
-          }
-        }
+        { headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` } }
       );
     }
 
@@ -66,48 +51,36 @@ export default async function handler(req, res) {
   }
 
   // =======================
-  // ORDER CLAIM
+  // FETCH OR REDEEM ORDERS
   // =======================
   if (req.method === 'POST') {
-    const { email, orderId } = req.body;
-
-    if (!email || !orderId) {
-      return res.status(400).json({ error: 'Missing fields' });
-    }
-
-    // Extra backend safety
-    if (!orderId.startsWith('#')) {
-      return res.status(400).json({ error: 'Invalid order number' });
-    }
+    const { email, orderId, fetchOnly } = req.body;
+    if (!email) return res.status(400).json({ error: 'Missing email' });
 
     try {
-      const query = `email:${email} name:${orderId}`;
-
       const shopifyRes = await axios.get(
         `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders.json`,
         {
-          params: {
-            status: 'any',
-            limit: 1,
-            query
-          },
-          auth: {
-            username: process.env.SHOPIFY_CLIENT_ID,
-            password: process.env.SHOPIFY_CLIENT_SECRET
-          }
+          params: { status: 'any', limit: 20, query: `email:${email}` },
+          auth: { username: process.env.SHOPIFY_CLIENT_ID, password: process.env.SHOPIFY_CLIENT_SECRET }
         }
       );
 
-      const order = shopifyRes.data.orders[0];
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
+      const orders = shopifyRes.data.orders;
+      if (!orders || orders.length === 0) {
+        return res.status(404).json({ error: 'No orders found' });
       }
 
-      const items = order.line_items
-        .map(i => `• ${i.title} x${i.quantity}`)
-        .join('\n');
+      if (fetchOnly) {
+        return res.json({ orders });
+      }
 
-      // Discord ticket (webhook)
+      // REDEEM selected order
+      const order = orders.find(o => o.name === orderId);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+
+      const items = order.line_items.map(i => `• ${i.title} x${i.quantity}`).join('\n');
+
       await axios.post(process.env.DISCORD_WEBHOOK_URL, {
         embeds: [{
           title: '🛒 New Order Claim',
@@ -129,3 +102,4 @@ export default async function handler(req, res) {
 
   res.status(405).end();
 }
+

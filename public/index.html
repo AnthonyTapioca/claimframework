@@ -24,10 +24,7 @@
 <script>
 async function redeemOrder() {
   const orderId = document.getElementById('orderId').value.trim();
-  if (!orderId) {
-    alert('Please enter your Order ID.');
-    return;
-  }
+  if (!orderId) { alert('Please enter your Order ID.'); return; }
 
   try {
     const res = await fetch('/api', {
@@ -45,7 +42,7 @@ async function redeemOrder() {
       ${data.alreadyRedeemed ? '<span class="text-red-600">Already redeemed</span>' : ''}
     `;
   } catch (err) {
-    alert(err.message);
+    alert(err.message || 'Error fetching claim code');
   }
 }
 </script>

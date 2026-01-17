@@ -1,6 +1,7 @@
 export default async function handler(req, res) {
   const claimedOrders = global.claimedOrders || (global.claimedOrders = new Set());
 
+  // Discord OAuth
   if (req.method === 'GET' && req.query.discordLogin) {
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
@@ -38,6 +39,7 @@ export default async function handler(req, res) {
     return res.redirect('/');
   }
 
+  // Handle POST (Shopify claim)
   if (req.method === 'POST') {
     const { email, orderId, fetchOnly, source } = req.body;
     if (!email) return res.status(400).json({ error: 'Missing email' });
@@ -64,10 +66,7 @@ export default async function handler(req, res) {
       const order = orders.find(o => o.name === orderId);
       if (!order) return res.status(404).json({ error: 'Order not found' });
 
-      if (claimedOrders.has(order.name)) {
-        return res.json({ success: true, alreadyClaimed: true });
-      }
-
+      if (claimedOrders.has(order.name)) return res.json({ success: true, alreadyClaimed: true });
       claimedOrders.add(order.name);
 
       const items = order.line_items.map(i => `• ${i.title} x${i.quantity}`).join('\n');
@@ -94,5 +93,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(405).end();
+  return res.status(405).end();
 }

@@ -1,121 +1,49 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Shoplox Claim</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
+<script>
+let orders = [];
 
-<body class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-orange-50 flex items-center justify-center px-6">
+async function fetchOrders() {
+  const email = document.getElementById('email').value.trim();
+  if (!email) return alert('Enter email');
 
-  <main class="w-full max-w-xl bg-white p-10 rounded-3xl shadow-lg">
-    <h1 class="text-4xl font-bold text-center mb-6">
-      SHOP<span class="text-purple-600">LOX</span>
-    </h1>
+  const res = await fetch('/api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, fetchOnly: true })
+  });
 
-    <!-- Email -->
-    <input
-      id="email"
-      type="email"
-      placeholder="Email used at checkout"
-      class="w-full mb-4 p-4 border rounded-xl"
-    />
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || 'No orders');
 
-    <!-- Button to fetch orders -->
-    <button
-      onclick="fetchOrders()"
-      class="w-full py-4 rounded-xl bg-purple-600 text-white font-bold mb-4"
-    >
-      Find My Orders
-    </button>
+  orders = data.orders;
 
-    <!-- Order dropdown (hidden initially) -->
-    <select id="orderSelect" class="w-full p-4 border rounded-xl mb-4 hidden"></select>
+  const select = document.getElementById('orderSelect');
+  select.innerHTML = '';
+  orders.forEach((o, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${o.name} — ${new Date(o.created_at).toLocaleDateString()}`;
+    select.appendChild(opt);
+  });
 
-    <!-- Redeem button -->
-    <button
-      id="redeemBtn"
-      onclick="redeemOrder()"
-      class="w-full py-4 rounded-xl bg-green-600 text-white font-bold hidden"
-    >
-      Redeem Selected Order
-    </button>
+  select.classList.remove('hidden');
+  document.getElementById('redeemBtn').classList.remove('hidden');
+}
 
-    <p class="text-sm text-gray-500 mt-2">
-      Enter your email and select your order. The system will automatically handle Discord login and ticket creation.
-    </p>
-  </main>
+async function redeemOrder() {
+  const email = document.getElementById('email').value.trim();
+  const idx = document.getElementById('orderSelect').value;
+  const order = orders[idx];
+  if (!order) return;
 
-  <script>
-    let orders = [];
+  const res = await fetch('/api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, orderId: order.name, source: 'frontend' })
+  });
 
-    async function fetchOrders() {
-      const email = document.getElementById('email').value.trim();
-      if (!email) {
-        alert('Please enter your email.');
-        return;
-      }
+  const data = await res.json();
+  if (!res.ok) return alert(data.error);
 
-      try {
-        const res = await fetch('/api', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, fetchOnly: true })
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.orders || data.orders.length === 0) {
-          alert('No orders found for this email.');
-          return;
-        }
-
-        orders = data.orders;
-        const select = document.getElementById('orderSelect');
-        select.innerHTML = '';
-        orders.forEach((o, idx) => {
-          const opt = document.createElement('option');
-          opt.value = idx;
-          opt.text = `${o.name} — ${o.created_at.split('T')[0]}`;
-          select.appendChild(opt);
-        });
-
-        select.classList.remove('hidden');
-        document.getElementById('redeemBtn').classList.remove('hidden');
-
-      } catch (err) {
-        alert('Error fetching orders. Try again.');
-        console.error(err);
-      }
-    }
-
-    async function redeemOrder() {
-      const email = document.getElementById('email').value.trim();
-      const select = document.getElementById('orderSelect');
-      const order = orders[select.value];
-
-      if (!order) {
-        alert('Please select a valid order.');
-        return;
-      }
-
-      try {
-        const res = await fetch('/api', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, orderId: order.name })
-        });
-
-        if (!res.ok) throw new Error('Failed to redeem order');
-
-        // Redirect to Discord OAuth
-        window.location.href = '/api?discordLogin=true';
-
-      } catch (err) {
-        alert(err.message || 'Error redeeming order');
-      }
-    }
-  </script>
-
-</body>
-</html>
+  window.location.href = '/api?discordLogin=true';
+}
+</script>

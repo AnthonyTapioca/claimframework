@@ -1,74 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Shoplox Claim</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-orange-50 flex items-center justify-center px-6">
-  <main class="w-full max-w-xl bg-white p-10 rounded-3xl shadow-lg">
-    <h1 class="text-4xl font-bold text-center mb-6">SHOP<span class="text-purple-600">LOX</span></h1>
+<main class="w-full max-w-xl bg-white p-10 rounded-3xl shadow-lg">
+  <h1 class="text-4xl font-bold text-center mb-6">
+    SHOP<span class="text-purple-600">LOX</span>
+  </h1>
 
-    <input id="email" type="email" placeholder="Email used at checkout" class="w-full mb-4 p-4 border rounded-xl"/>
-    <input id="orderId" type="text" placeholder="Order ID" class="w-full mb-4 p-4 border rounded-xl"/>
-    <button id="redeemBtn" class="w-full py-4 rounded-xl bg-green-600 text-white font-bold">Get Claim Code</button>
-    <p id="status" class="text-sm text-gray-500 mt-2"></p>
-  </main>
+  <input id="orderId" type="text" placeholder="Enter your Order ID" class="w-full mb-4 p-4 border rounded-xl" />
 
-  <script>
-    const statusEl = document.getElementById('status');
+  <button onclick="redeemOrder()" class="w-full py-4 rounded-xl bg-green-600 text-white font-bold mb-4">
+    Get Claim Code
+  </button>
 
-    document.getElementById('redeemBtn').addEventListener('click', async () => {
-      const email = document.getElementById('email').value.trim();
-      const orderId = document.getElementById('orderId').value.trim();
+  <div id="result" class="text-center text-lg font-semibold text-gray-700"></div>
+</main>
 
-      if (!email || !orderId) {
-        statusEl.textContent = "Enter both email and order ID.";
-        return;
-      }
+<script>
+async function redeemOrder() {
+  const orderId = document.getElementById('orderId').value.trim();
+  if (!orderId) {
+    alert('Please enter your Order ID.');
+    return;
+  }
 
-      statusEl.textContent = "Generating claim code...";
-
-      try {
-        const res = await fetch('/api', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, orderId })
-        });
-
-        let data;
-        try {
-          data = await res.clone().json();
-        } catch {
-          const text = await res.text();
-          throw new Error(`Invalid JSON response: ${text}`);
-        }
-
-        if (!res.ok) throw new Error(data?.error || 'Unknown error');
-
-        const code = data.code;
-        if (!code) throw new Error('No code returned');
-
-        statusEl.textContent = data.alreadyClaimed
-          ? `This order was already claimed. Code: ${code}`
-          : `Claim code generated!`;
-
-        const newTab = window.open('', '_blank');
-        if (newTab) {
-          newTab.document.write(`
-            <h1>Your Claim Code</h1>
-            <p style="font-size:2rem; font-weight:bold;">${code}</p>
-            <p>Copy this code and use it in Discord to claim your order.</p>
-          `);
-          newTab.document.close();
-        }
-
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = `Error: ${err.message}`;
-      }
+  try {
+    const res = await fetch('/api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'redeem', orderId })
     });
-  </script>
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to redeem');
+
+    document.getElementById('result').innerHTML = `
+      Claim Code: <span class="text-green-600 font-bold">${data.code}</span><br/>
+      Product: ${data.product || 'N/A'}<br/>
+      ${data.alreadyRedeemed ? '<span class="text-red-600">Already redeemed</span>' : ''}
+    `;
+  } catch (err) {
+    alert(err.message);
+  }
+}
+</script>
 </body>
 </html>

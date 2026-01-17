@@ -11,17 +11,13 @@ export default async function handler(req, res) {
 
     const { action, email, orderId, items, product, discordUserId } = req.body;
 
-    if (!action) {
-      return res.status(400).json({ error: 'Missing action' });
-    }
+    if (!action) return res.status(400).json({ error: 'Missing action' });
 
-    // ----------------- CREATE ORDER (Pixa pixel) -----------------
+    // ----------------- CREATE ORDER -----------------
     if (action === 'create') {
-      if (!email || !orderId || !items) {
-        return res.status(400).json({ error: 'Missing parameters for create' });
-      }
+      if (!email || !orderId || !items) return res.status(400).json({ error: 'Missing parameters' });
 
-      const code = crypto.randomBytes(4).toString('hex');
+      const code = crypto.randomBytes(4).toString('hex'); // 8-char claim code
 
       const { error } = await supabase
         .from('claimed_orders')
@@ -34,14 +30,17 @@ export default async function handler(req, res) {
           claimed: false
         }, { onConflict: ['order_id'] });
 
-      if (error) return res.status(500).json({ error: 'Failed to save order', details: error.message });
+      if (error) {
+        console.error('[Backend] Supabase upsert failed:', error.message);
+        return res.status(500).json({ error: 'Failed to save order', details: error.message });
+      }
 
       return res.json({ code, alreadyClaimed: false });
     }
 
-    // ----------------- REDEEM (frontend users) -----------------
+    // ----------------- REDEEM -----------------
     if (action === 'redeem') {
-      if (!orderId) return res.status(400).json({ error: 'Missing orderId for redeem' });
+      if (!orderId) return res.status(400).json({ error: 'Missing orderId' });
 
       const { data, error } = await supabase
         .from('claimed_orders')
@@ -58,11 +57,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // ----------------- CLAIM (Discord bot) -----------------
+    // ----------------- CLAIM (Discord Bot) -----------------
     if (action === 'claim') {
-      if (!orderId || !discordUserId) {
-        return res.status(400).json({ error: 'Missing parameters for claim' });
-      }
+      if (!orderId || !discordUserId) return res.status(400).json({ error: 'Missing parameters' });
 
       const { data, error } = await supabase
         .from('claimed_orders')

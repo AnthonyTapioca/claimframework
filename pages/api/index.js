@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  const claimedOrders = global.claimedOrders || (global.claimedOrders = new Set());
 
   if (req.method === 'GET' && req.query.discordLogin) {
     const params = new URLSearchParams({
@@ -30,14 +31,11 @@ export default async function handler(req, res) {
     if (process.env.DISCORD_BOT_TOKEN) {
       await fetch(
         `https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${userRes.id}/roles/${process.env.DISCORD_ROLE_ID}`,
-        {
-          method: 'PUT',
-          headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` }
-        }
+        { method: 'PUT', headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` } }
       );
     }
 
-    return res.redirect('https://claimframework.vercel.app');
+    return res.redirect('/');
   }
 
   if (req.method === 'POST') {
@@ -66,6 +64,12 @@ export default async function handler(req, res) {
       const order = orders.find(o => o.name === orderId);
       if (!order) return res.status(404).json({ error: 'Order not found' });
 
+      if (claimedOrders.has(order.name)) {
+        return res.json({ success: true, alreadyClaimed: true });
+      }
+
+      claimedOrders.add(order.name);
+
       const items = order.line_items.map(i => `• ${i.title} x${i.quantity}`).join('\n');
 
       await fetch(process.env.DISCORD_WEBHOOK_URL, {
@@ -84,7 +88,6 @@ export default async function handler(req, res) {
       });
 
       return res.json({ success: true });
-
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Server error' });

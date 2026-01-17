@@ -1,24 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-
-const CLAIMED_FILE = path.resolve('./claimedOrders.json');
-
-function loadClaimed() {
-  try {
-    return new Set(JSON.parse(fs.readFileSync(CLAIMED_FILE, 'utf8')));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveClaimed(claimedSet) {
-  fs.writeFileSync(CLAIMED_FILE, JSON.stringify([...claimedSet]), 'utf8');
-}
+import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
-  const claimedOrders = loadClaimed();
 
-  // Discord OAuth
   if (req.method === 'GET' && req.query.discordLogin) {
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
@@ -56,17 +39,15 @@ export default async function handler(req, res) {
     return res.redirect('/');
   }
 
-  // POST: Manual claim or Pixa pixel
   if (req.method === 'POST') {
     const { email, orderId, items } = req.body;
-
     if (!email || !orderId) return res.status(400).json({ error: 'Missing email or order ID' });
-    if (claimedOrders.has(orderId)) return res.json({ success: true, alreadyClaimed: true });
 
-    claimedOrders.add(orderId);
-    saveClaimed(claimedOrders);
+    const alreadyClaimed = await kv.get(orderId);
+    if (alreadyClaimed) return res.json({ success: true, alreadyClaimed: true });
 
-    // Send to Discord
+    await kv.set(orderId, true);
+
     await fetch(process.env.DISCORD_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

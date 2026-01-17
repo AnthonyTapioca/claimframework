@@ -1,10 +1,9 @@
 import axios from 'axios';
 
+const claimedOrders = new Set();
+
 export default async function handler(req, res) {
 
-  // =======================
-  // DISCORD LOGIN REDIRECT
-  // =======================
   if (req.method === 'GET' && req.query.discordLogin) {
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
@@ -12,23 +11,17 @@ export default async function handler(req, res) {
       response_type: 'code',
       scope: 'identify guilds.members.read'
     });
-
     return res.redirect(`https://discord.com/oauth2/authorize?${params}`);
   }
 
-  // =======================
-  // DISCORD CALLBACK
-  // =======================
   if (req.method === 'GET' && req.query.code) {
-    const code = req.query.code;
-
     const tokenRes = await axios.post(
       'https://discord.com/api/oauth2/token',
       new URLSearchParams({
         client_id: process.env.DISCORD_CLIENT_ID,
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: 'authorization_code',
-        code,
+        code: req.query.code,
         redirect_uri: process.env.DISCORD_REDIRECT_URI
       }),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
@@ -39,7 +32,7 @@ export default async function handler(req, res) {
       { headers: { Authorization: `Bearer ${tokenRes.data.access_token}` } }
     );
 
-    if (process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_GUILD_ID && process.env.DISCORD_ROLE_ID) {
+    if (process.env.DISCORD_BOT_TOKEN) {
       await axios.put(
         `https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${userRes.data.id}/roles/${process.env.DISCORD_ROLE_ID}`,
         {},
@@ -50,11 +43,8 @@ export default async function handler(req, res) {
     return res.redirect('https://claimframework.vercel.app');
   }
 
-  // =======================
-  // FETCH OR REDEEM ORDERS
-  // =======================
   if (req.method === 'POST') {
-    const { email, orderId, fetchOnly } = req.body;
+    const { email, orderId, fetchOnly, source } = req.body;
     if (!email) return res.status(400).json({ error: 'Missing email' });
 
     try {
@@ -62,28 +52,32 @@ export default async function handler(req, res) {
         `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders.json`,
         {
           params: { status: 'any', limit: 20, query: `email:${email}` },
-          auth: { username: process.env.SHOPIFY_CLIENT_ID, password: process.env.SHOPIFY_CLIENT_SECRET }
+          auth: {
+            username: process.env.SHOPIFY_CLIENT_ID,
+            password: process.env.SHOPIFY_CLIENT_SECRET
+          }
         }
       );
 
-      const orders = shopifyRes.data.orders;
-      if (!orders || orders.length === 0) {
-        return res.status(404).json({ error: 'No orders found' });
-      }
+      const orders = shopifyRes.data.orders || [];
+      if (!orders.length) return res.status(404).json({ error: 'No orders found' });
 
-      if (fetchOnly) {
-        return res.json({ orders });
-      }
+      if (fetchOnly) return res.json({ orders });
 
-      // REDEEM selected order
       const order = orders.find(o => o.name === orderId);
       if (!order) return res.status(404).json({ error: 'Order not found' });
+
+      if (claimedOrders.has(order.name)) {
+        return res.json({ success: true, alreadyClaimed: true });
+      }
+
+      claimedOrders.add(order.name);
 
       const items = order.line_items.map(i => `• ${i.title} x${i.quantity}`).join('\n');
 
       await axios.post(process.env.DISCORD_WEBHOOK_URL, {
         embeds: [{
-          title: '🛒 New Order Claim',
+          title: source === 'pixel' ? '🛒 Auto Purchase Detected' : '🛒 Order Claimed',
           fields: [
             { name: 'Email', value: email },
             { name: 'Order Number', value: order.name },
@@ -95,11 +89,10 @@ export default async function handler(req, res) {
       return res.json({ success: true });
 
     } catch (err) {
-      console.error(err.message);
+      console.error(err);
       return res.status(500).json({ error: 'Server error' });
     }
   }
 
   res.status(405).end();
 }
-

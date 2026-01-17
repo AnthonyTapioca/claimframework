@@ -12,7 +12,7 @@
 
     <input id="email" type="email" placeholder="Email used at checkout" class="w-full mb-4 p-4 border rounded-xl"/>
     <input id="orderId" type="text" placeholder="Order ID" class="w-full mb-4 p-4 border rounded-xl"/>
-    <button id="redeemBtn" class="w-full py-4 rounded-xl bg-green-600 text-white font-bold">Redeem Order</button>
+    <button id="redeemBtn" class="w-full py-4 rounded-xl bg-green-600 text-white font-bold">Get Claim Code</button>
     <p id="status" class="text-sm text-gray-500 mt-2"></p>
   </main>
 
@@ -28,12 +28,12 @@
         return;
       }
 
-      statusEl.textContent = "Redeeming order...";
+      statusEl.textContent = "Generating claim code...";
       try {
         const res = await fetch('/api', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, orderId, items: "" })
+          body: JSON.stringify({ email, orderId })
         });
 
         const data = await res.json();
@@ -41,16 +41,17 @@
         if (!res.ok) throw new Error(data.error || 'Unknown error');
 
         if (data.alreadyClaimed) {
-          statusEl.textContent = "This order has already been claimed.";
-          return;
+          statusEl.textContent = `Order already claimed. Your code: ${data.code}`;
+        } else {
+          statusEl.textContent = `Claim code generated! Copy this code: ${data.code}`;
         }
 
-        statusEl.textContent = "Order claimed! Redirecting to Discord...";
-        window.location.href = '/api?discordLogin=true';
+        // Optionally open a new tab with code page
+        window.open(`/claim?code=${data.code}`, '_blank');
 
       } catch (err) {
         console.error(err);
-        statusEl.textContent = `Error redeeming order: ${err.message || err}`;
+        statusEl.textContent = `Error: ${err.message}`;
       }
     });
   </script>

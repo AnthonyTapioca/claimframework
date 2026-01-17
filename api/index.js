@@ -1,5 +1,23 @@
+import fs from 'fs';
+import path from 'path';
+
+const CLAIMED_FILE = path.resolve('./claimedOrders.json');
+
+function loadClaimed() {
+  try {
+    const data = fs.readFileSync(CLAIMED_FILE, 'utf8');
+    return new Set(JSON.parse(data));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveClaimed(claimedSet) {
+  fs.writeFileSync(CLAIMED_FILE, JSON.stringify([...claimedSet]), 'utf8');
+}
+
 export default async function handler(req, res) {
-  const claimedOrders = global.claimedOrders || (global.claimedOrders = new Set());
+  const claimedOrders = loadClaimed();
 
   // Discord OAuth
   if (req.method === 'GET' && req.query.discordLogin) {
@@ -39,58 +57,33 @@ export default async function handler(req, res) {
     return res.redirect('/');
   }
 
-  // Handle POST (Shopify claim)
+  // Handle POST (Pixa purchase or frontend claim)
   if (req.method === 'POST') {
-    const { email, orderId, fetchOnly, source } = req.body;
-    if (!email) return res.status(400).json({ error: 'Missing email' });
+    const { email, orderId, items } = req.body;
 
-    try {
-      const shopifyRes = await fetch(
-        `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders.json?status=any&limit=20&query=email:${email}`,
-        {
-          headers: {
-            Authorization:
-              'Basic ' +
-              Buffer.from(
-                `${process.env.SHOPIFY_CLIENT_ID}:${process.env.SHOPIFY_CLIENT_SECRET}`
-              ).toString('base64')
-          }
-        }
-      ).then(r => r.json());
+    if (!email || !orderId) return res.status(400).json({ error: 'Missing email or order ID' });
+    if (claimedOrders.has(orderId)) return res.json({ success: true, alreadyClaimed: true });
 
-      const orders = shopifyRes.orders || [];
-      if (!orders.length) return res.status(404).json({ error: 'No orders found' });
+    claimedOrders.add(orderId);
+    saveClaimed(claimedOrders);
 
-      if (fetchOnly) return res.json({ orders });
+    // Send to Discord
+    await fetch(process.env.DISCORD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [{
+          title: '🛒 Order Claimed',
+          fields: [
+            { name: 'Email', value: email },
+            { name: 'Order Number', value: orderId },
+            { name: 'Items', value: items || 'N/A' }
+          ]
+        }]
+      })
+    });
 
-      const order = orders.find(o => o.name === orderId);
-      if (!order) return res.status(404).json({ error: 'Order not found' });
-
-      if (claimedOrders.has(order.name)) return res.json({ success: true, alreadyClaimed: true });
-      claimedOrders.add(order.name);
-
-      const items = order.line_items.map(i => `• ${i.title} x${i.quantity}`).join('\n');
-
-      await fetch(process.env.DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          embeds: [{
-            title: source === 'pixel' ? '🛒 Auto Purchase' : '🛒 Order Claimed',
-            fields: [
-              { name: 'Email', value: email },
-              { name: 'Order Number', value: order.name },
-              { name: 'Items', value: items }
-            ]
-          }]
-        })
-      });
-
-      return res.json({ success: true });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Server error' });
-    }
+    return res.json({ success: true });
   }
 
   return res.status(405).end();

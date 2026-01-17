@@ -10,47 +10,44 @@ function generateCode() {
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { email, orderId } = req.body;
-    if (!email || !orderId) {
-      return res.status(400).json({ error: 'Missing email or order ID' });
-    }
+    const { email, orderId, items } = req.body;
+    if (!email || !orderId) return res.status(400).json({ error: 'Missing email or order ID' });
 
-    // Check if order already claimed
-    const { data: existing, error: fetchError } = await supabase
-      .from('claimed_orders')
-      .select('code')
-      .eq('order_id', orderId)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      // PGRST116 = no rows, which is fine
-      console.error(fetchError);
-      return res.status(500).json({ error: 'Database error' });
+    let existing;
+    try {
+      const { data, error } = await supabase
+        .from('claimed_orders')
+        .select('code')
+        .eq('order_id', orderId)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+      existing = data;
+    } catch (err) {
+      console.error('Fetch existing code error:', err);
+      return res.status(500).json({ error: 'Database fetch error' });
     }
 
     if (existing) {
       return res.json({ success: true, alreadyClaimed: true, code: existing.code });
     }
 
-    // Generate new claim code
     const code = generateCode();
 
-    const { error: insertError } = await supabase
-      .from('claimed_orders')
-      .insert([{ order_id: orderId, email, code }]);
-
-    if (insertError) {
-      console.error(insertError);
+    try {
+      const { error } = await supabase
+        .from('claimed_orders')
+        .insert([{ order_id: orderId, email, items, code }]);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Insert code error:', err);
       return res.status(500).json({ error: 'Database insert error' });
     }
 
     return res.json({ success: true, alreadyClaimed: false, code });
   } catch (err) {
-    console.error('Backend error:', err);
+    console.error('API error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 }

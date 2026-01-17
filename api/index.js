@@ -5,12 +5,9 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const { action, email, orderId, items, product, discordUserId } = req.body;
-
     if (!action) return res.status(400).json({ error: 'Missing action' });
 
     // ----------------- CREATE ORDER -----------------
@@ -30,15 +27,12 @@ export default async function handler(req, res) {
           claimed: false
         }, { onConflict: ['order_id'] });
 
-      if (error) {
-        console.error('[Backend] Supabase upsert failed:', error.message);
-        return res.status(500).json({ error: 'Failed to save order', details: error.message });
-      }
+      if (error) return res.status(500).json({ error: 'Failed to save order', details: error.message });
 
       return res.json({ code, alreadyClaimed: false });
     }
 
-    // ----------------- REDEEM -----------------
+    // ----------------- REDEEM (frontend users) -----------------
     if (action === 'redeem') {
       if (!orderId) return res.status(400).json({ error: 'Missing orderId' });
 

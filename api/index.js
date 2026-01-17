@@ -5,8 +5,7 @@ const CLAIMED_FILE = path.resolve('./claimedOrders.json');
 
 function loadClaimed() {
   try {
-    const data = fs.readFileSync(CLAIMED_FILE, 'utf8');
-    return new Set(JSON.parse(data));
+    return new Set(JSON.parse(fs.readFileSync(CLAIMED_FILE, 'utf8')));
   } catch {
     return new Set();
   }
@@ -57,7 +56,7 @@ export default async function handler(req, res) {
     return res.redirect('/');
   }
 
-  // Handle POST (Pixa purchase or frontend claim)
+  // POST: Manual claim or Pixa pixel
   if (req.method === 'POST') {
     const { email, orderId, items } = req.body;
 

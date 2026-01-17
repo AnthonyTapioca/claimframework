@@ -22,87 +22,49 @@
       class="w-full mb-4 p-4 border rounded-xl"
     />
 
-    <!-- Button to fetch orders -->
-    <button
-      id="fetchBtn"
-      class="w-full py-4 rounded-xl bg-purple-600 text-white font-bold mb-4"
-    >
-      Find My Orders
-    </button>
-
-    <!-- Order dropdown (hidden initially) -->
-    <select id="orderSelect" class="w-full p-4 border rounded-xl mb-4 hidden"></select>
+    <!-- Order ID -->
+    <input
+      id="orderId"
+      type="text"
+      placeholder="Enter your Order ID"
+      class="w-full mb-4 p-4 border rounded-xl"
+    />
 
     <!-- Redeem button -->
     <button
       id="redeemBtn"
-      class="w-full py-4 rounded-xl bg-green-600 text-white font-bold hidden"
+      class="w-full py-4 rounded-xl bg-green-600 text-white font-bold"
     >
-      Redeem Selected Order
+      Redeem Order
     </button>
 
     <p class="text-sm text-gray-500 mt-2">
-      Enter your email and select your order. The system will automatically handle Discord login and ticket creation.
+      Enter your email and your order ID. Each order can only be claimed once.
     </p>
   </main>
 
   <script>
-    let orders = [];
-
-    const fetchBtn = document.getElementById('fetchBtn');
     const redeemBtn = document.getElementById('redeemBtn');
-    const orderSelect = document.getElementById('orderSelect');
-
-    fetchBtn.addEventListener('click', async () => {
-      const email = document.getElementById('email').value.trim();
-      if (!email) return alert('Please enter your email.');
-
-      try {
-        const res = await fetch('/api', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, fetchOnly: true })
-        });
-        const data = await res.json();
-
-        if (!res.ok || !data.orders || !data.orders.length) {
-          return alert('No orders found for this email.');
-        }
-
-        orders = data.orders;
-        orderSelect.innerHTML = '';
-        orders.forEach((o, idx) => {
-          const opt = document.createElement('option');
-          opt.value = idx;
-          opt.text = `${o.name} — ${new Date(o.created_at).toLocaleDateString()}`;
-          orderSelect.appendChild(opt);
-        });
-
-        orderSelect.classList.remove('hidden');
-        redeemBtn.classList.remove('hidden');
-      } catch (err) {
-        console.error(err);
-        alert('Error fetching orders. Try again.');
-      }
-    });
 
     redeemBtn.addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
-      const selectedIdx = orderSelect.value;
-      const order = orders[selectedIdx];
+      const orderId = document.getElementById('orderId').value.trim();
 
-      if (!order) return alert('Please select a valid order.');
+      if (!email || !orderId) return alert('Please enter both email and order ID.');
 
       try {
         const res = await fetch('/api', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, orderId: order.name })
+          body: JSON.stringify({ email, orderId })
         });
 
-        if (!res.ok) throw new Error('Failed to redeem order');
+        const data = await res.json();
 
-        // Redirect to Discord OAuth
+        if (!res.ok) throw new Error(data.error || 'Failed to redeem order');
+        if (data.alreadyClaimed) return alert('This order has already been claimed.');
+
+        alert('Order claimed successfully! Redirecting to Discord...');
         window.location.href = '/api?discordLogin=true';
 
       } catch (err) {

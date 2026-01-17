@@ -39,27 +39,28 @@
 
         let data;
         try {
-          data = await res.json();
+          data = await res.clone().json(); // safely parse JSON
         } catch {
           const text = await res.text();
           throw new Error(`Invalid JSON response: ${text}`);
         }
 
-        if (!res.ok) throw new Error(data.error || 'Unknown error');
+        if (!res.ok) throw new Error(data?.error || 'Unknown error');
 
         const code = data.code;
         if (!code) throw new Error('No code returned');
 
-        if (data.alreadyClaimed) {
-          statusEl.textContent = `This order was already claimed. Code: ${code}`;
-        } else {
-          statusEl.textContent = `Claim code generated!`;
-        }
+        statusEl.textContent = data.alreadyClaimed
+          ? `This order was already claimed. Code: ${code}`
+          : `Claim code generated!`;
 
-        // Open a new tab with the code for the user
         const newTab = window.open('', '_blank');
         if (newTab) {
-          newTab.document.write(`<h1>Your Claim Code</h1><p style="font-size:2rem; font-weight:bold;">${code}</p><p>Copy this code and use it in Discord to claim your order.</p>`);
+          newTab.document.write(`
+            <h1>Your Claim Code</h1>
+            <p style="font-size:2rem; font-weight:bold;">${code}</p>
+            <p>Copy this code and use it in Discord to claim your order.</p>
+          `);
           newTab.document.close();
         }
 

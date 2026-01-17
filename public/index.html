@@ -29,6 +29,7 @@
       }
 
       statusEl.textContent = "Generating claim code...";
+
       try {
         const res = await fetch('/api', {
           method: 'POST',
@@ -36,18 +37,31 @@
           body: JSON.stringify({ email, orderId })
         });
 
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          const text = await res.text();
+          throw new Error(`Invalid JSON response: ${text}`);
+        }
 
         if (!res.ok) throw new Error(data.error || 'Unknown error');
 
+        const code = data.code;
+        if (!code) throw new Error('No code returned');
+
         if (data.alreadyClaimed) {
-          statusEl.textContent = `Order already claimed. Your code: ${data.code}`;
+          statusEl.textContent = `This order was already claimed. Code: ${code}`;
         } else {
-          statusEl.textContent = `Claim code generated! Copy this code: ${data.code}`;
+          statusEl.textContent = `Claim code generated!`;
         }
 
-        // Optionally open a new tab with code page
-        window.open(`/claim?code=${data.code}`, '_blank');
+        // Open a new tab with the code for the user
+        const newTab = window.open('', '_blank');
+        if (newTab) {
+          newTab.document.write(`<h1>Your Claim Code</h1><p style="font-size:2rem; font-weight:bold;">${code}</p><p>Copy this code and use it in Discord to claim your order.</p>`);
+          newTab.document.close();
+        }
 
       } catch (err) {
         console.error(err);

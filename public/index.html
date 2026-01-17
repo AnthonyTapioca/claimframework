@@ -1,36 +1,58 @@
-<input id="code" type="text" placeholder="Enter your claim code" class="w-full mb-4 p-4 border rounded-xl" />
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shoplox Claim</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
 
-<button onclick="redeemCode()" class="w-full py-4 rounded-xl bg-green-600 text-white font-bold mb-4">
-  Get Product
-</button>
+  <main class="w-full max-w-sm bg-white p-8 rounded-3xl shadow-lg text-center">
+    <h1 class="text-3xl font-bold mb-6">Enter Claim Code</h1>
 
-<div id="result"></div>
+    <input id="code" type="text" placeholder="e.g. 3691019" 
+           class="w-full p-4 border rounded-xl mb-4 text-center text-xl" />
 
-<script>
-async function redeemCode() {
-  const code = document.getElementById('code').value.trim();
-  if (!code) { alert('Enter your claim code'); return; }
+    <button onclick="redeemCode()" 
+            class="w-full py-4 rounded-xl bg-green-600 text-white font-bold mb-4">
+      Redeem
+    </button>
 
-  try {
-    const res = await fetch('/api', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'redeem', code })
-    });
+    <div id="result" class="mt-4 text-lg font-semibold"></div>
+  </main>
 
-    let data;
-    try { data = await res.json(); }
-    catch { const text = await res.text(); alert("Non-JSON response: " + text); return; }
+  <script>
+    async function redeemCode() {
+      const code = document.getElementById('code').value.trim();
+      if (!code) { 
+        alert('Please enter your claim code'); 
+        return; 
+      }
 
-    if (!res.ok) throw new Error(data.error || 'Failed');
+      try {
+        const res = await fetch('/api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'redeem', code })
+        });
 
-    document.getElementById('result').innerHTML = `
-      Product: <strong>${data.product || 'N/A'}</strong><br/>
-      Order ID: <strong>${data.orderId}</strong><br/>
-      ${data.alreadyRedeemed ? '<span style="color:red">Already redeemed</span>' : ''}
-    `;
-  } catch (err) {
-    alert(err.message || 'Error redeeming code');
-  }
-}
-</script>
+        let data;
+        try { data = await res.json(); }
+        catch { const text = await res.text(); alert("Server error: " + text); return; }
+
+        if (!res.ok) throw new Error(data.error || 'Failed to redeem');
+
+        document.getElementById('result').innerHTML = `
+          Product: <span class="text-green-600 font-bold">${data.product || 'N/A'}</span><br/>
+          Order ID: <span class="font-mono">${data.orderId}</span><br/>
+          ${data.alreadyRedeemed ? '<span class="text-red-600 font-bold">Already redeemed</span>' : ''}
+        `;
+      } catch (err) {
+        alert(err.message || 'Error redeeming code');
+      }
+    }
+  </script>
+
+</body>
+</html>

@@ -1,53 +1,75 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-function generateCode() {
-  return Math.random().toString(36).substring(2, 10).toUpperCase();
-}
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export default async function handler(req, res) {
-  try {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { email, orderId, items } = req.body;
-    if (!email || !orderId) return res.status(400).json({ error: 'Missing email or order ID' });
+  const { action, email, orderId, items, product, discordUserId } = req.body;
 
-    let existing;
-    try {
-      const { data, error } = await supabase
-        .from('claimed_orders')
-        .select('code')
-        .eq('order_id', orderId)
-        .single();
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
-      existing = data;
-    } catch (err) {
-      console.error('Fetch existing code error:', err);
-      return res.status(500).json({ error: 'Database fetch error' });
-    }
+  // ---------------- REDEEM (frontend users) ----------------
+  if (action === 'redeem') {
+    if (!orderId) return res.status(400).json({ error: 'Missing orderId' });
 
-    if (existing) {
-      return res.json({ success: true, alreadyClaimed: true, code: existing.code });
-    }
+    const { data, error } = await supabase
+      .from('claimed_orders')
+      .select('order_id, code, product, claimed')
+      .eq('order_id', orderId)
+      .single();
 
-    const code = generateCode();
+    if (error) return res.status(404).json({ error: 'Order not found' });
 
-    try {
-      const { error } = await supabase
-        .from('claimed_orders')
-        .insert([{ order_id: orderId, email, items, code }]);
-      if (error) throw error;
-    } catch (err) {
-      console.error('Insert code error:', err);
-      return res.status(500).json({ error: 'Database insert error' });
-    }
-
-    return res.json({ success: true, alreadyClaimed: false, code });
-  } catch (err) {
-    console.error('API error:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return res.json({
+      code: data.code,
+      product: data.product,
+      alreadyRedeemed: data.claimed
+    });
   }
+
+  // ---------------- CLAIM (Discord bot) ----------------
+  if (action === 'claim') {
+    if (!orderId || !discordUserId) return res.status(400).json({ error: 'Missing parameters' });
+
+    const { data, error } = await supabase
+      .from('claimed_orders')
+      .select('order_id, code, product, claimed')
+      .eq('order_id', orderId)
+      .single();
+
+    if (error) return res.status(404).json({ error: 'Order not found' });
+    if (data.claimed) return res.status(400).json({ error: 'Already claimed' });
+
+    // Mark order as claimed
+    await supabase
+      .from('claimed_orders')
+      .update({ claimed: true, discord_user_id: discordUserId })
+      .eq('order_id', orderId);
+
+    return res.json({ code: data.code, product: data.product });
+  }
+
+  // ---------------- CREATE ORDER (Pixa JS pixel) ----------------
+  if (action === 'create') {
+    if (!email || !orderId || !items) return res.status(400).json({ error: 'Missing parameters' });
+
+    const code = crypto.randomBytes(4).toString('hex'); // 8-char claim code
+
+    const { error } = await supabase
+      .from('claimed_orders')
+      .upsert({
+        email,
+        order_id: orderId,
+        items,
+        product: product || null,
+        code,
+        claimed: false
+      }, { onConflict: ['order_id'] });
+
+    if (error) return res.status(500).json({ error: 'Failed to save order' });
+
+    return res.json({ code, alreadyClaimed: false });
+  }
+
+  return res.status(400).json({ error: 'Invalid action' });
 }

@@ -39,7 +39,7 @@
 
         let data;
         try {
-          data = await res.clone().json(); // safely parse JSON
+          data = await res.clone().json();
         } catch {
           const text = await res.text();
           throw new Error(`Invalid JSON response: ${text}`);
